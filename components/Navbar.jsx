@@ -16,7 +16,7 @@ const Navbar = () => {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    router.push(`/shop?search=₹{search}`);
+    router.push(`/shop?search=${search}`);
   };
 
   return (
@@ -36,7 +36,6 @@ const Navbar = () => {
             </Protect>
           </Link>
 
-          {/* Desktop Menu */}
           <div className="hidden sm:flex items-center gap-4 lg:gap-8 text-slate-600">
             <Link href="/">Home</Link>
             <Link href="/shop">Shop</Link>
@@ -89,10 +88,9 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* Mobile User Button  */}
           <div className="sm:hidden">
             {user ? (
-              <div>
+              <div className="flex gap-4">
                 <UserButton>
                   <UserButton.MenuItems>
                     <UserButton.Action
@@ -100,10 +98,6 @@ const Navbar = () => {
                       label="Cart"
                       onClick={() => router.push("/cart")}
                     />
-                  </UserButton.MenuItems>
-                </UserButton>
-                <UserButton>
-                  <UserButton.MenuItems>
                     <UserButton.Action
                       labelIcon={<PackageIcon size={16} />}
                       label="My Orders"

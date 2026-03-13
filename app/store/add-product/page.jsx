@@ -8,15 +8,15 @@ import { toast } from "react-hot-toast";
 
 export default function StoreAddProduct() {
   const categories = [
-    "Electronics",
-    "Clothing",
-    "Home & Kitchen",
-    "Beauty & Health",
-    "Toys & Games",
-    "Sports & Outdoors",
-    "Books & Media",
-    "Food & Drink",
-    "Hobbies & Crafts",
+    "Books & Study Material",
+    "Electronics & Gadgets",
+    "Dorm & Hostel Essentials",
+    "Stationery & Art Supplies",
+    "Project & Lab Kits",
+    "Clothing & Uniforms",
+    "Sports & Fitness",
+    "Bicycles & Transport",
+    "Events & Tickets",
     "Others",
   ];
 
@@ -40,6 +40,7 @@ export default function StoreAddProduct() {
   const handleImageUpload = async (key, file) => {
     setImages((prev) => ({ ...prev, [key]: file }));
 
+    // AI logic triggers only for the primary image slot
     if (key === "1" && file && !aiUsed) {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -53,13 +54,11 @@ export default function StoreAddProduct() {
             axios.post(
               "/api/store/ai",
               { base64Image: base64String, mimeType },
-              { headers: { Authorization: `₹{token}` } },
+              { headers: { Authorization: `Bearer ${token}` } },
             ),
             {
-              loading: "Analyzing image with AI...",
+              loading: "AI is analyzing your item...",
               success: (res) => {
-                console.log(res);
-
                 const data = res.data;
                 if (data.name && data.description) {
                   setProductInfo((prev) => ({
@@ -68,15 +67,20 @@ export default function StoreAddProduct() {
                     description: data.description,
                   }));
                   setAiUsed(true);
-                  return "AI filled product info 🎉";
+                  return "AI filled the details! ✨";
                 }
-                return "AI could not analyze the image";
+                return "AI couldn't describe this.";
               },
-              error: (err) => err?.response?.data?.error || err.message,
+              error: (err) => {
+                if (err.response?.status === 429) {
+                  return "AI is busy (Rate Limit). Try again in a minute.";
+                }
+                return err?.response?.data?.error || "AI currently unavailable";
+              },
             },
           );
         } catch (error) {
-          console.error(error);
+          console.error("AI Error:", error);
         }
       };
     }
@@ -103,10 +107,11 @@ export default function StoreAddProduct() {
 
       const token = await getToken();
       const { data } = await axios.post("/api/store/product", formData, {
-        headers: { Authorization: `₹{token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       toast.success(data.message);
 
+      // Reset form after successful post
       setProductInfo({
         name: "",
         description: "",
@@ -137,22 +142,22 @@ export default function StoreAddProduct() {
 
       <div className="flex gap-3 mt-4">
         {Object.keys(images).map((key) => (
-          <label key={key} htmlFor={`images₹{key}`}>
+          <label key={key} htmlFor={`images${key}`}>
             <Image
               width={300}
               height={300}
-              className="h-15 w-auto border border-slate-200 rounded cursor-pointer"
+              className="h-20 w-auto border border-slate-200 rounded-md cursor-pointer hover:border-indigo-300 transition-all object-cover"
               src={
                 images[key]
                   ? URL.createObjectURL(images[key])
                   : assets.upload_area
               }
-              alt=""
+              alt="Upload placeholder"
             />
             <input
               type="file"
               accept="image/*"
-              id={`images₹{key}`}
+              id={`images${key}`}
               onChange={(e) => handleImageUpload(key, e.target.files[0])}
               hidden
             />
@@ -167,8 +172,8 @@ export default function StoreAddProduct() {
           name="name"
           onChange={onChangeHandler}
           value={productInfo.name}
-          placeholder="Enter product name"
-          className="w-full max-w-sm p-2 px-4 outline-none border border-slate-200 rounded"
+          placeholder="e.g. Database Management System Textbook"
+          className="w-full max-w-sm p-2 px-4 outline-none border border-slate-200 rounded focus:border-indigo-500"
           required
         />
       </label>
@@ -179,9 +184,9 @@ export default function StoreAddProduct() {
           name="description"
           onChange={onChangeHandler}
           value={productInfo.description}
-          placeholder="Enter product description"
+          placeholder="Condition, age, features..."
           rows={5}
-          className="w-full max-w-sm p-2 px-4 outline-none border border-slate-200 rounded resize-none"
+          className="w-full max-w-sm p-2 px-4 outline-none border border-slate-200 rounded resize-none focus:border-indigo-500"
           required
         />
       </label>
@@ -195,7 +200,7 @@ export default function StoreAddProduct() {
             onChange={onChangeHandler}
             value={productInfo.mrp}
             placeholder="0"
-            className="w-full max-w-45 p-2 px-4 outline-none border border-slate-200 rounded"
+            className="w-full max-w-45 p-2 px-4 outline-none border border-slate-200 rounded focus:border-indigo-500"
             required
           />
         </label>
@@ -207,35 +212,36 @@ export default function StoreAddProduct() {
             onChange={onChangeHandler}
             value={productInfo.price}
             placeholder="0"
-            className="w-full max-w-45 p-2 px-4 outline-none border border-slate-200 rounded"
+            className="w-full max-w-45 p-2 px-4 outline-none border border-slate-200 rounded focus:border-indigo-500 font-semibold"
             required
           />
         </label>
       </div>
 
-      <select
-        onChange={(e) =>
-          setProductInfo({ ...productInfo, category: e.target.value })
-        }
-        value={productInfo.category}
-        className="w-full max-w-sm p-2 px-4 my-6 outline-none border border-slate-200 rounded"
-        required
-      >
-        <option value="">Select a category</option>
-        {categories.map((category) => (
-          <option key={category} value={category}>
-            {category}
-          </option>
-        ))}
-      </select>
-
-      <br />
+      <div className="flex flex-col gap-2 my-6">
+        Category
+        <select
+          onChange={(e) =>
+            setProductInfo({ ...productInfo, category: e.target.value })
+          }
+          value={productInfo.category}
+          className="w-full max-w-sm p-2 px-4 outline-none border border-slate-200 rounded bg-white focus:border-indigo-500"
+          required
+        >
+          <option value="">Select a category</option>
+          {categories.map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <button
         disabled={loading}
-        className="bg-slate-800 text-white px-6 mt-7 py-2 hover:bg-slate-900 rounded transition"
+        className="bg-slate-800 text-white px-8 mt-4 py-2.5 hover:bg-slate-900 rounded-md transition-all shadow-md disabled:bg-slate-400"
       >
-        Add Product
+        {loading ? "Processing..." : "Add Product"}
       </button>
     </form>
   );

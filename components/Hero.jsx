@@ -11,8 +11,8 @@ const Hero = () => {
   return (
     <div className="mx-6">
       <div className="flex max-xl:flex-col gap-8 max-w-7xl mx-auto my-10">
-        <div className="relative flex-1 flex flex-col bg-indigo-100 rounded-3xl xl:min-h-100 group">
-          <div className="p-5 sm:p-16">
+        <div className="relative flex-1 flex flex-col bg-indigo-100 rounded-3xl xl:min-h-100 group overflow-hidden">
+          <div className="p-5 sm:p-16 relative z-20">
             <div className="inline-flex items-center gap-3 bg-indigo-200 text-indigo-600 pr-4 p-1 rounded-full text-xs sm:text-sm">
               <span className="bg-indigo-600 px-3 py-1 max-sm:ml-1 rounded-full text-white text-xs">
                 NEWS
@@ -23,7 +23,7 @@ const Hero = () => {
                 size={16}
               />
             </div>
-            <h2 className="text-3xl sm:text-5xl leading-[1.2] my-3 font-medium bg-gradient-to-r from-slate-600 to-indigo-400 bg-clip-text text-transparent max-w-xs  sm:max-w-md">
+            <h2 className="text-3xl sm:text-5xl leading-[1.2] my-3 font-medium bg-gradient-to-r from-slate-600 to-indigo-400 bg-clip-text text-transparent max-w-xs sm:max-w-md">
               Buy Notes.
             </h2>
             <div className="text-slate-800 text-sm font-medium mt-4 sm:mt-8">
@@ -34,13 +34,15 @@ const Hero = () => {
               LEARN MORE
             </button>
           </div>
+
           <Image
-            className="absolute bottom-0 right-0 h-[80%] w-auto object-contain z-10"
+            className="absolute bottom-0 right-0 h-[85%] w-auto object-contain z-10 pointer-events-none"
             src={assets.hero_model_img}
             alt="Student"
             priority
           />
         </div>
+
         <div className="flex flex-col md:flex-row xl:flex-col gap-5 w-full xl:max-w-sm text-sm text-slate-600">
           <div className="flex-1 flex items-center justify-between w-full bg-orange-100 rounded-3xl p-6 px-8 group">
             <div>

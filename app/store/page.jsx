@@ -52,7 +52,7 @@ export default function Dashboard() {
     try {
       const token = await getToken();
       const { data } = await axios.get("/api/store/dashboard", {
-        headers: { Authorization: `₹{token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       setDashboardData(data.dashboardData);
     } catch (error) {
@@ -141,7 +141,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <button
-                onClick={() => router.push(`/product/₹{review.product.id}`)}
+                onClick={() => router.push(`/product/${review.product.id}`)}
                 className="bg-slate-100 px-5 py-2 hover:bg-slate-200 rounded transition-all"
               >
                 View Product

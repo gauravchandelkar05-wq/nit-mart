@@ -8,17 +8,15 @@ async function main(base64Image, mimeType) {
     {
       role: "system",
       content: `
-                        You are a product listing assistant for an e-commerce store.
-                        Your job is to analyze an image of a product and generate structured data.
-
-                        Respond ONLY with raw JSON (no code block, no markdown, no explanation).
-                        The JSON must strictly follow this schema:
-
-                        {
-                        "name": string,               // Short product name
-                        "description": string,         // Marketing-friendly description of the product
-                        }
-                   `,
+        You are a product listing assistant for an e-commerce store.
+        Analyze the product image and generate structured data.
+        Respond ONLY with raw JSON.
+        Schema:
+        {
+          "name": "string",
+          "description": "string"
+        }
+      `,
     },
     {
       role: "user",
@@ -29,47 +27,51 @@ async function main(base64Image, mimeType) {
         },
         {
           type: "image_url",
-          image_url: { url: `data:₹{mimeType};base64,₹{base64Image}` },
+          image_url: { url: `data:${mimeType};base64,${base64Image}` },
         },
       ],
     },
   ];
 
   const response = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL,
+    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
     messages,
   });
 
   const raw = response.choices[0].message.content;
-  console.log(raw);
-
-  // remove ```json or ``` wrappers if present
   const cleaned = raw.replace(/```json|```/g, "").trim();
 
-  let parsed;
   try {
-    parsed = JSON.parse(cleaned);
+    return JSON.parse(cleaned);
   } catch {
     throw new Error("AI did not return valid JSON");
   }
-
-  return parsed;
 }
 
 export async function POST(request) {
   try {
     const { userId } = getAuth(request);
     const isAdmin = await authSeller(userId);
+
     if (!isAdmin) {
-      return NextResponse.json({ error: "not authorized" }, { status: 401 });
+      return NextResponse.json({ error: "Not authorized" }, { status: 401 });
     }
+
     const { base64Image, mimeType } = await request.json();
+
+    if (!base64Image || !mimeType) {
+      return NextResponse.json(
+        { error: "Missing image data" },
+        { status: 400 },
+      );
+    }
+
     const result = await main(base64Image, mimeType);
     return NextResponse.json({ ...result });
   } catch (error) {
     console.error(error);
     return NextResponse.json(
-      { error: error.code || error.message },
+      { error: error.message || "Internal Server Error" },
       { status: 400 },
     );
   }

@@ -16,7 +16,7 @@ export default function StoreShop() {
 
   const fetchStoreData = async () => {
     try {
-      const { data } = await axios.get(`/api/store/data?username=₹{username}`);
+      const { data } = await axios.get(`/api/store/data?username=${username}`);
       setStoreInfo(data.store);
       setProducts(data.store.Product);
     } catch (error) {
@@ -31,7 +31,6 @@ export default function StoreShop() {
 
   return !loading ? (
     <div className="min-h-[70vh] mx-6">
-      {/* Store Info Banner */}
       {storeInfo && (
         <div className="max-w-7xl mx-auto bg-slate-50 rounded-xl p-6 md:p-10 mt-6 flex flex-col md:flex-row items-center gap-6 shadow-xs">
           <Image
@@ -63,7 +62,6 @@ export default function StoreShop() {
         </div>
       )}
 
-      {/* Products */}
       <div className=" max-w-7xl mx-auto mb-40">
         <h1 className="text-2xl mt-12">
           Shop <span className="text-slate-800 font-medium">Products</span>

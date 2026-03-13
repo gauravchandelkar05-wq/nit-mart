@@ -13,7 +13,6 @@ export async function POST(request) {
     const { addressId, items, couponCode, paymentMethod } =
       await request.json();
 
-    // Check if all required fields are present
     if (
       !addressId ||
       !paymentMethod ||
@@ -41,7 +40,6 @@ export async function POST(request) {
       }
     }
 
-    // Check if coupon is applicable for new users
     if (couponCode && coupon.forNewUser) {
       const userorders = await prisma.order.findMany({ where: { userId } });
       if (userorders.length > 0) {
@@ -54,7 +52,6 @@ export async function POST(request) {
 
     const isPlusMember = has({ plan: "plus" });
 
-    // Check if coupon is applicable for members
     if (couponCode && coupon.forMember) {
       if (!isPlusMember) {
         return NextResponse.json(
@@ -64,7 +61,6 @@ export async function POST(request) {
       }
     }
 
-    // Group orders by storeId using a Map
     const ordersByStore = new Map();
 
     for (const item of items) {
@@ -83,7 +79,6 @@ export async function POST(request) {
 
     let isShippingFeeAdded = false;
 
-    // Create orders for each seller
     for (const [storeId, sellerItems] of ordersByStore.entries()) {
       let total = sellerItems.reduce(
         (acc, item) => acc + item.price * item.quantity,
@@ -130,7 +125,7 @@ export async function POST(request) {
         line_items: [
           {
             price_data: {
-              currency: "usd",
+              currency: "usd", // Note: you might want to change this to 'inr' if your site is meant for ₹
               product_data: {
                 name: "Order",
               },
@@ -139,10 +134,10 @@ export async function POST(request) {
             quantity: 1,
           },
         ],
-        expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // current time + 30 minutes
+        expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
         mode: "payment",
-        success_url: `₹{origin}/loading?nextUrl=orders`,
-        cancel_url: `₹{origin}/cart`,
+        success_url: `${origin}/loading?nextUrl=orders`,
+        cancel_url: `${origin}/cart`,
         metadata: {
           orderIds: orderIds.join(","),
           userId,
@@ -152,7 +147,6 @@ export async function POST(request) {
       return NextResponse.json({ session });
     }
 
-    // clear the cart
     await prisma.user.update({
       where: { id: userId },
       data: { cart: {} },
@@ -168,7 +162,6 @@ export async function POST(request) {
   }
 }
 
-// Get all orders for a user
 export async function GET(request) {
   try {
     const { userId } = getAuth(request);

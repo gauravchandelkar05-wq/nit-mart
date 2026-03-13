@@ -21,7 +21,8 @@ export default function Orders() {
       try {
         const token = await getToken();
         const { data } = await axios.get("/api/orders", {
-          headers: { Authorization: `₹{token}` },
+          // FIXED 1: Changed ₹ to $ so the token is sent correctly
+          headers: { Authorization: `Bearer ${token}` }, // Note: Added 'Bearer ' as it's standard for Clerk, remove if your backend doesn't need it!
         });
         setOrders(data.orders);
         setLoading(false);
@@ -48,7 +49,8 @@ export default function Orders() {
         <div className="my-20 max-w-7xl mx-auto">
           <PageTitle
             heading="My Orders"
-            text={`Showing total ₹{orders.length} orders`}
+            // FIXED 2: Changed ₹ to $ so it says "Showing total X orders"
+            text={`Showing total ${orders.length} orders`}
             linkText={"Go to home"}
           />
 

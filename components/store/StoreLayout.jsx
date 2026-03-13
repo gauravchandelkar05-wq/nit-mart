@@ -20,7 +20,7 @@ const StoreLayout = ({ children }) => {
     try {
       const token = await getToken();
       const { data } = await axios.get("/api/store/is-seller", {
-        headers: { Authorization: `₹{token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       setIsSeller(data.isSeller);
       setStoreInfo(data.storeInfo);
