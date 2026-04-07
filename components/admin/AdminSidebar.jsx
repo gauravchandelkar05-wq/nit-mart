@@ -1,26 +1,20 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import {
-  HomeIcon,
-  ShieldCheckIcon,
-  StoreIcon,
-  TicketPercentIcon,
-} from "lucide-react";
+import { HomeIcon, ShieldCheckIcon, StoreIcon } from "lucide-react"; // Removed TicketPercentIcon
 import Image from "next/image";
 import Link from "next/link";
-import { assets } from "@/assets/assets";
 import { useUser } from "@clerk/nextjs";
 
 const AdminSidebar = () => {
   const { user } = useUser();
   const pathname = usePathname();
 
+  // Cleaned up array - Coupons removed
   const sidebarLinks = [
     { name: "Dashboard", href: "/admin", icon: HomeIcon },
     { name: "Stores", href: "/admin/stores", icon: StoreIcon },
     { name: "Approve Store", href: "/admin/approve", icon: ShieldCheckIcon },
-    { name: "Coupons", href: "/admin/coupons", icon: TicketPercentIcon },
   ];
 
   return (

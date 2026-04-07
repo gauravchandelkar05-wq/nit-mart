@@ -1,188 +1,157 @@
 import prisma from "@/lib/prisma";
 import { getAuth } from "@clerk/nextjs/server";
-import { PaymentMethod } from "@prisma/client";
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
 
+export const dynamic = "force-dynamic";
+
+// 1. POST: Place Order and Decrement Stock
 export async function POST(request) {
   try {
-    const { userId, has } = getAuth(request);
-    if (!userId) {
-      return NextResponse.json({ error: "not authorized" }, { status: 401 });
-    }
-    const { addressId, items, couponCode, paymentMethod } =
-      await request.json();
+    const { userId } = getAuth(request);
+    if (!userId)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    if (
-      !addressId ||
-      !paymentMethod ||
-      !items ||
-      !Array.isArray(items) ||
-      items.length === 0
-    ) {
+    const body = await request.json();
+    const { items, totalAmount } = body;
+
+    // Safety Check: Make sure user exists in your DB
+    const dbUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!dbUser) {
       return NextResponse.json(
-        { error: "missing order details." },
-        { status: 401 },
+        { error: "User not found in database. Try logging out and back in." },
+        { status: 404 },
       );
     }
 
-    let coupon = null;
+    if (!items || items.length === 0) {
+      return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
+    }
 
-    if (couponCode) {
-      coupon = await prisma.coupon.findUnique({
-        where: { code: couponCode },
+    // 🔥 THE TRANSACTION
+    const result = await prisma.$transaction(async (tx) => {
+      // STEP A: Get the storeId from the first product
+      const product = await tx.product.findUnique({
+        where: { id: items[0].id || items[0].productId },
       });
-      if (!coupon) {
-        return NextResponse.json(
-          { error: "Coupon not found" },
-          { status: 400 },
-        );
-      }
-    }
 
-    if (couponCode && coupon.forNewUser) {
-      const userorders = await prisma.order.findMany({ where: { userId } });
-      if (userorders.length > 0) {
-        return NextResponse.json(
-          { error: "Coupon valid for new users" },
-          { status: 400 },
-        );
-      }
-    }
+      if (!product) throw new Error("Product no longer exists.");
 
-    const isPlusMember = has({ plan: "plus" });
-
-    if (couponCode && coupon.forMember) {
-      if (!isPlusMember) {
-        return NextResponse.json(
-          { error: "Coupon valid for members only" },
-          { status: 400 },
-        );
-      }
-    }
-
-    const ordersByStore = new Map();
-
-    for (const item of items) {
-      const product = await prisma.product.findUnique({
-        where: { id: item.id },
-      });
-      const storeId = product.storeId;
-      if (!ordersByStore.has(storeId)) {
-        ordersByStore.set(storeId, []);
-      }
-      ordersByStore.get(storeId).push({ ...item, price: product.price });
-    }
-
-    let orderIds = [];
-    let fullAmount = 0;
-
-    let isShippingFeeAdded = false;
-
-    for (const [storeId, sellerItems] of ordersByStore.entries()) {
-      let total = sellerItems.reduce(
-        (acc, item) => acc + item.price * item.quantity,
-        0,
-      );
-
-      if (couponCode) {
-        total -= (total * coupon.discount) / 100;
-      }
-      if (!isPlusMember && !isShippingFeeAdded) {
-        total += 5;
-        isShippingFeeAdded = true;
-      }
-
-      fullAmount += parseFloat(total.toFixed(2));
-
-      const order = await prisma.order.create({
+      // STEP B: Create the Order
+      const newOrder = await tx.order.create({
         data: {
-          userId,
-          storeId,
-          addressId,
-          total: parseFloat(total.toFixed(2)),
-          paymentMethod,
-          isCouponUsed: coupon ? true : false,
-          coupon: coupon ? coupon : {},
+          userId: userId,
+          storeId: product.storeId,
+          total: parseFloat(totalAmount),
+          status: "ORDER_PLACED",
+          paymentMethod: "COD",
           orderItems: {
-            create: sellerItems.map((item) => ({
-              productId: item.id,
+            create: items.map((item) => ({
+              productId: item.id || item.productId,
               quantity: item.quantity,
-              price: item.price,
+              price: parseFloat(item.price),
             })),
           },
         },
       });
-      orderIds.push(order.id);
-    }
 
-    if (paymentMethod === "STRIPE") {
-      const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-      const origin = await request.headers.get("origin");
+      // STEP C: Subtract from Stock (Decrement)
+      for (const item of items) {
+        await tx.product.update({
+          where: { id: item.id || item.productId },
+          data: { stock: { decrement: item.quantity } },
+        });
+      }
 
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
-        line_items: [
-          {
-            price_data: {
-              currency: "usd", // Note: you might want to change this to 'inr' if your site is meant for ₹
-              product_data: {
-                name: "Order",
-              },
-              unit_amount: Math.round(fullAmount * 100),
-            },
-            quantity: 1,
-          },
-        ],
-        expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-        mode: "payment",
-        success_url: `${origin}/loading?nextUrl=orders`,
-        cancel_url: `${origin}/cart`,
-        metadata: {
-          orderIds: orderIds.join(","),
-          userId,
-          appId: "NIT-Mart",
-        },
-      });
-      return NextResponse.json({ session });
-    }
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { cart: {} },
+      return newOrder;
     });
 
-    return NextResponse.json({ message: "Orders Placed Successfully" });
+    return NextResponse.json({
+      success: true,
+      message: "Order placed! 🚀",
+      orderId: result.id,
+    });
   } catch (error) {
-    console.error(error);
+    console.error("BACKEND_CRASH_LOG:", error.message);
     return NextResponse.json(
-      { error: error.code || error.message },
-      { status: 400 },
+      { error: error.message || "Internal Server Error" },
+      { status: 500 },
     );
   }
 }
 
+// 2. GET: Fetch buyer's order history
 export async function GET(request) {
   try {
     const { userId } = getAuth(request);
+    if (!userId)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const orders = await prisma.order.findMany({
-      where: {
-        userId,
-        OR: [
-          { paymentMethod: PaymentMethod.COD },
-          { AND: [{ paymentMethod: PaymentMethod.STRIPE }, { isPaid: true }] },
-        ],
-      },
+      where: { userId: userId },
+      // 🔥 FIXED: We must include the store so the frontend can get the seller's phone number!
       include: {
-        orderItems: { include: { product: true } },
-        address: true,
+        orderItems: {
+          include: {
+            product: {
+              include: { store: true },
+            },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
-
     return NextResponse.json({ orders });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// 3. PATCH: Cancel Order & Restore Stock
+export async function PATCH(request) {
+  try {
+    const { userId } = getAuth(request);
+    if (!userId)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { orderId } = await request.json();
+
+    // 🔥 CANCELLATION TRANSACTION
+    const result = await prisma.$transaction(async (tx) => {
+      // Find the order and verify ownership
+      const order = await tx.order.findUnique({
+        where: { id: orderId, userId: userId },
+        include: { orderItems: true },
+      });
+
+      if (!order) throw new Error("Order not found.");
+
+      if (order.status !== "ORDER_PLACED") {
+        throw new Error("Cannot cancel order once it is in progress.");
+      }
+
+      // Update Order Status to CANCELLED
+      const cancelledOrder = await tx.order.update({
+        where: { id: orderId },
+        data: { status: "CANCELLED" },
+      });
+
+      // 🛡️ RESTORE STOCK (Increment)
+      for (const item of order.orderItems) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.quantity } },
+        });
+      }
+
+      return cancelledOrder;
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Order cancelled and items returned to stock! ♻️",
+    });
+  } catch (error) {
+    console.error("Cancellation Error:", error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

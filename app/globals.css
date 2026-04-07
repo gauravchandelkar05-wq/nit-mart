@@ -1,22 +1,59 @@
 @import "tailwindcss";
 
-@layer components {
-    @keyframes marqueeScroll {
-        0% {
-            transform: translateX(0%);
-        }
-        100% {
-            transform: translateX(-50%);
-        }
-    }
-}
-
 @layer base {
-    button {
-        cursor: pointer;
-    }
+  button {
+    cursor: pointer;
+  }
 }
 
+@layer components {
+  /* Existing Marquee */
+  @keyframes marqueeScroll {
+    0% {
+      transform: translateX(0%);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  /* Floating Blob Animation */
+  @keyframes blob {
+    0% {
+      transform: translate(0px, 0px) scale(1);
+    }
+    33% {
+      transform: translate(30px, -50px) scale(1.1);
+    }
+    66% {
+      transform: translate(-20px, 20px) scale(0.9);
+    }
+    100% {
+      transform: translate(0px, 0px) scale(1);
+    }
+  }
+}
+
+@layer utilities {
+  /* Animation Helpers */
+  .animate-blob {
+    animation: blob 7s infinite;
+  }
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+
+  /* Glassmorphism Blur Effect */
+  .glass-blur {
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px); /* For Safari support */
+  }
+}
+
+/* Custom Scrollbar Utility */
 .no-scrollbar::-webkit-scrollbar {
-    display: none;
+  display: none;
 }
