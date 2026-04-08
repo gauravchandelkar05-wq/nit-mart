@@ -55,7 +55,13 @@ export default function StoreShop() {
               </div>
               <div className="flex items-center">
                 <MailIcon className="w-4 h-4 text-gray-500 mr-2" />
-                <span>{storeInfo.email}</span>
+                {/* FIXED: Email is now clickable */}
+                <a
+                  href={`mailto:${storeInfo.email}`}
+                  className="hover:text-indigo-600 hover:underline transition-colors"
+                >
+                  {storeInfo.email}
+                </a>
               </div>
             </div>
           </div>

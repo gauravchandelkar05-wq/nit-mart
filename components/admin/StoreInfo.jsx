@@ -31,15 +31,32 @@ const StoreInfo = ({ store }) => {
       </div>
 
       <p className="text-slate-600 my-5 max-w-2xl">{store.description}</p>
+
       <div className="space-y-1.5 text-slate-500">
         <p className="flex items-center gap-2">
           <MapPin size={16} className="text-indigo-500" /> {store.address}
         </p>
+
+        {/* 🔥 FIXED: Phone number is now a clickable 'tel' link */}
         <p className="flex items-center gap-2">
-          <Phone size={16} className="text-indigo-500" /> {store.contact}
+          <Phone size={16} className="text-indigo-500" />
+          <a
+            href={`tel:${store.contact}`}
+            className="hover:text-indigo-600 hover:underline transition-colors"
+          >
+            {store.contact}
+          </a>
         </p>
+
+        {/* 🔥 FIXED: Email is now a clickable 'mailto' link */}
         <p className="flex items-center gap-2">
-          <Mail size={16} className="text-indigo-500" /> {store.email}
+          <Mail size={16} className="text-indigo-500" />
+          <a
+            href={`mailto:${store.email}`}
+            className="hover:text-indigo-600 hover:underline transition-colors"
+          >
+            {store.email}
+          </a>
         </p>
       </div>
 
@@ -50,6 +67,7 @@ const StoreInfo = ({ store }) => {
         </span>{" "}
         by
       </p>
+
       <div className="flex items-center gap-2 text-sm ">
         <Image
           width={36}
@@ -60,7 +78,13 @@ const StoreInfo = ({ store }) => {
         />
         <div>
           <p className="text-slate-600 font-medium">{store.user.name}</p>
-          <p className="text-slate-400 text-xs">{store.user.email}</p>
+          {/* 🔥 FIXED: Made the applicant's personal email clickable too just in case! */}
+          <a
+            href={`mailto:${store.user.email}`}
+            className="text-slate-400 text-xs hover:text-indigo-600 hover:underline transition-colors block mt-0.5"
+          >
+            {store.user.email}
+          </a>
         </div>
       </div>
     </div>
