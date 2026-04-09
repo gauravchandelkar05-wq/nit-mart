@@ -4,10 +4,9 @@ import { NextResponse } from "next/server";
 export async function GET(request) {
   try {
     let products = await prisma.product.findMany({
-      // 🔥 CHANGE: Filter by stock quantity instead of the deleted inStock boolean
       where: {
         stock: {
-          gt: 0, // "gt" means Greater Than. This hides "Sold Out" items.
+          gt: 0,
         },
       },
       include: {
@@ -24,7 +23,6 @@ export async function GET(request) {
       orderBy: { createdAt: "desc" },
     });
 
-    // remove products with store isActive false
     products = products.filter((product) => product.store.isActive);
 
     return NextResponse.json({ products });

@@ -17,11 +17,10 @@ export default function PublicLayout({ children }) {
 
   const { cartItems } = useSelector((state) => state.cart);
 
-  // 🔥 HYDRATION FIX: Track if the component has mounted in the browser
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true); // 🔥 Set to true once the browser loads
+    setIsMounted(true);
     dispatch(fetchProducts({}));
   }, [dispatch]);
 

@@ -34,7 +34,6 @@ export async function GET(request) {
 
     return NextResponse.json({ stores: stores || [] });
   } catch (error) {
-    // 🔥 THE FIX: We return the EXACT error message so the frontend can read it
     console.error("CRITICAL GET ERROR:", error);
     return NextResponse.json(
       { error: `PRISMA/BACKEND ERROR: ${error.message}` },

@@ -3,7 +3,6 @@ import authAdmin from "@/middlewares/authAdmin";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-// 🔥 Force Next.js to fetch fresh data every time
 export const dynamic = "force-dynamic";
 
 /**
@@ -81,8 +80,6 @@ export async function DELETE(request) {
         { status: 400 },
       );
     }
-
-    // 💥 THE ULTIMATE DEEP CLEANSE 💥
 
     // Step A: Find all products for this store
     const storeProducts = await prisma.product.findMany({

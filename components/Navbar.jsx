@@ -4,6 +4,8 @@ import {
   Search,
   ShoppingCart,
   User as UserIcon,
+  Menu,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -18,12 +20,11 @@ const Navbar = () => {
 
   const [search, setSearch] = useState("");
   const [isMounted, setIsMounted] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Correctly getting total items in cart
   const cartItems = useSelector((state) => state.cart.cartItems);
   const cartCount = Object.values(cartItems).reduce((a, b) => a + b, 0);
 
-  // Set mounted to true once component loads in browser to fix hydration errors
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -32,6 +33,7 @@ const Navbar = () => {
     e.preventDefault();
     if (search.trim()) {
       router.push(`/shop?search=${search}`);
+      setIsMobileMenuOpen(false);
     }
   };
 
@@ -39,14 +41,12 @@ const Navbar = () => {
     <nav className="relative bg-white sticky top-0 z-50 border-b border-slate-100">
       <div className="mx-6">
         <div className="flex items-center justify-between max-w-7xl mx-auto py-4 transition-all">
-          {/* LOGO */}
           <Link
             href="/"
             className="relative text-3xl font-black text-slate-800 tracking-tighter"
           >
             <span className="text-indigo-600">NIT</span>-Mart
             <span className="text-indigo-600 text-4xl">.</span>
-            {/* Membership Badge */}
             {isMounted && (
               <Protect plan="plus">
                 <p className="absolute text-[8px] font-black -top-1 -right-10 px-2 py-0.5 rounded-full text-white bg-indigo-600 uppercase tracking-widest shadow-lg shadow-indigo-100">
@@ -56,7 +56,6 @@ const Navbar = () => {
             )}
           </Link>
 
-          {/* DESKTOP LINKS */}
           <div className="hidden sm:flex items-center gap-6 lg:gap-10 text-slate-500 font-bold text-xs uppercase tracking-widest">
             <Link href="/" className="hover:text-indigo-600 transition">
               Home
@@ -71,7 +70,6 @@ const Navbar = () => {
               Contact
             </Link>
 
-            {/* SEARCH BAR */}
             <form
               onSubmit={handleSearch}
               className="hidden xl:flex items-center w-64 gap-2 bg-slate-50 px-4 py-2.5 rounded-2xl border border-slate-100 focus-within:border-indigo-200 transition-all"
@@ -86,7 +84,6 @@ const Navbar = () => {
               />
             </form>
 
-            {/* CART */}
             <Link
               href="/cart"
               className="relative flex items-center gap-2 group"
@@ -98,7 +95,6 @@ const Navbar = () => {
                 />
               </div>
 
-              {/* Cart Bubble */}
               {isMounted && cartCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-black text-white ring-4 ring-white animate-in zoom-in">
                   {cartCount}
@@ -106,7 +102,6 @@ const Navbar = () => {
               )}
             </Link>
 
-            {/* DESKTOP AUTH SECTION */}
             {!isMounted ? (
               <div className="size-10 bg-slate-100 animate-pulse rounded-full"></div>
             ) : !user ? (
@@ -138,9 +133,7 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* MOBILE NAV */}
           <div className="sm:hidden flex items-center gap-4">
-            {/* Mobile Cart */}
             {isMounted && user && (
               <Link
                 href="/cart"
@@ -155,7 +148,6 @@ const Navbar = () => {
               </Link>
             )}
 
-            {/* MOBILE AUTH SECTION WITH FIXED MENU ITEMS */}
             {isMounted &&
               (!user ? (
                 <button
@@ -182,7 +174,67 @@ const Navbar = () => {
                   </UserButton.MenuItems>
                 </UserButton>
               ))}
+
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 bg-slate-50 text-slate-600 rounded-lg border border-slate-100"
+            >
+              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
+        </div>
+      </div>
+
+      <div
+        className={`sm:hidden absolute top-full left-0 w-full bg-white border-b border-slate-100 shadow-xl transition-all duration-300 ease-in-out ${
+          isMobileMenuOpen
+            ? "opacity-100 translate-y-0 visible"
+            : "opacity-0 -translate-y-4 invisible"
+        }`}
+      >
+        <div className="p-6 flex flex-col gap-4">
+          <form
+            onSubmit={handleSearch}
+            className="flex items-center gap-2 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 focus-within:border-indigo-200 transition-all"
+          >
+            <Search size={16} className="text-slate-400" />
+            <input
+              className="w-full bg-transparent outline-none placeholder-slate-400 text-sm font-bold lowercase"
+              type="text"
+              placeholder="Find books, kits..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </form>
+
+          <Link
+            href="/"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="text-sm font-black text-slate-700 hover:text-indigo-600 uppercase tracking-widest p-2"
+          >
+            Home
+          </Link>
+          <Link
+            href="/shop"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="text-sm font-black text-slate-700 hover:text-indigo-600 uppercase tracking-widest p-2"
+          >
+            Shop
+          </Link>
+          <Link
+            href="/about"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="text-sm font-black text-slate-700 hover:text-indigo-600 uppercase tracking-widest p-2"
+          >
+            About
+          </Link>
+          <Link
+            href="/contact"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="text-sm font-black text-slate-700 hover:text-indigo-600 uppercase tracking-widest p-2"
+          >
+            Contact
+          </Link>
         </div>
       </div>
     </nav>
