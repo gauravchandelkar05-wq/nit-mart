@@ -8,10 +8,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useUser, useClerk } from "@clerk/nextjs";
 
 export default function Cart() {
   const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "₹";
   const dispatch = useDispatch();
+
+  const { isSignedIn } = useUser();
+  const { openSignIn } = useClerk();
 
   const { cartItems } = useSelector((state) => state.cart);
   const products = useSelector((state) => state.product.list);
@@ -22,8 +26,6 @@ export default function Cart() {
     setIsMounted(true);
   }, []);
 
-  // 🔥 FIXED: Use useMemo for "Cart Syncing"
-  // This automatically filters out items that no longer exist in the DB
   const { cartArray, totalPrice } = useMemo(() => {
     let currentTotal = 0;
     const tempArray = [];
@@ -52,7 +54,6 @@ export default function Cart() {
         />
 
         <div className="flex items-start justify-between gap-10 max-lg:flex-col mt-8">
-          {/* CART ITEMS LIST */}
           <div className="w-full max-w-4xl">
             <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
               <table className="w-full text-left border-collapse">
@@ -118,7 +119,6 @@ export default function Cart() {
               </table>
             </div>
 
-            {/* CONTINUE SHOPPING LINK */}
             <Link
               href="/shop"
               className="inline-flex items-center gap-2 mt-6 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition ml-4"
@@ -127,15 +127,18 @@ export default function Cart() {
             </Link>
           </div>
 
-          {/* SUMMARY SIDEBAR */}
           <div className="w-full lg:max-w-sm sticky top-24">
-            <OrderSummary totalPrice={totalPrice} items={cartArray} />
+            <OrderSummary
+              totalPrice={totalPrice}
+              items={cartArray}
+              isSignedIn={isSignedIn}
+              openSignIn={openSignIn}
+            />
           </div>
         </div>
       </div>
     </div>
   ) : (
-    /* EMPTY STATE */
     <div className="min-h-[70vh] flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500">
       <div className="bg-slate-50 p-10 rounded-[3rem] border-2 border-dashed border-slate-200 flex flex-col items-center gap-6">
         <div className="p-8 bg-white rounded-full shadow-xl shadow-slate-200/50">

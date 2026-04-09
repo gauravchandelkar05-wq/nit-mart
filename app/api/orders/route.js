@@ -1,25 +1,40 @@
 import prisma from "@/lib/prisma";
-import { getAuth } from "@clerk/nextjs/server";
+import { getAuth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// 1. POST: Place Order and Decrement Stock
 export async function POST(request) {
   try {
     const { userId } = getAuth(request);
-    if (!userId)
+    const user = await currentUser();
+
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const body = await request.json();
-    const { items, totalAmount } = body;
+    const { items, totalAmount, phoneNumber } = body;
 
-    // Safety Check: Make sure user exists in your DB
-    const dbUser = await prisma.user.findUnique({ where: { id: userId } });
-    if (!dbUser) {
+    try {
+      await prisma.user.upsert({
+        where: { id: userId },
+        update: {
+          phone: phoneNumber,
+        },
+        create: {
+          id: userId,
+          email: user?.emailAddresses[0]?.emailAddress || "no-email@campus.com",
+          name: user?.firstName || "Student",
+          image: user?.imageUrl || "",
+          phone: phoneNumber,
+        },
+      });
+    } catch (dbError) {
+      console.error("USER_SYNC_ERROR:", dbError.message);
       return NextResponse.json(
-        { error: "User not found in database. Try logging out and back in." },
-        { status: 404 },
+        { error: "Could not sync user profile. Check terminal." },
+        { status: 500 },
       );
     }
 
@@ -27,16 +42,13 @@ export async function POST(request) {
       return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
     }
 
-    // 🔥 THE TRANSACTION
     const result = await prisma.$transaction(async (tx) => {
-      // STEP A: Get the storeId from the first product
       const product = await tx.product.findUnique({
         where: { id: items[0].id || items[0].productId },
       });
 
       if (!product) throw new Error("Product no longer exists.");
 
-      // STEP B: Create the Order
       const newOrder = await tx.order.create({
         data: {
           userId: userId,
@@ -54,7 +66,6 @@ export async function POST(request) {
         },
       });
 
-      // STEP C: Subtract from Stock (Decrement)
       for (const item of items) {
         await tx.product.update({
           where: { id: item.id || item.productId },
@@ -67,11 +78,11 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: "Order placed! 🚀",
+      message: "Order placed!",
       orderId: result.id,
     });
   } catch (error) {
-    console.error("BACKEND_CRASH_LOG:", error.message);
+    console.error("ORDER_POST_ERROR:", error.message);
     return NextResponse.json(
       { error: error.message || "Internal Server Error" },
       { status: 500 },
@@ -79,16 +90,15 @@ export async function POST(request) {
   }
 }
 
-// 2. GET: Fetch buyer's order history
 export async function GET(request) {
   try {
     const { userId } = getAuth(request);
-    if (!userId)
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const orders = await prisma.order.findMany({
       where: { userId: userId },
-      // 🔥 FIXED: We must include the store so the frontend can get the seller's phone number!
       include: {
         orderItems: {
           include: {
@@ -106,18 +116,16 @@ export async function GET(request) {
   }
 }
 
-// 3. PATCH: Cancel Order & Restore Stock
 export async function PATCH(request) {
   try {
     const { userId } = getAuth(request);
-    if (!userId)
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const { orderId } = await request.json();
 
-    // 🔥 CANCELLATION TRANSACTION
     const result = await prisma.$transaction(async (tx) => {
-      // Find the order and verify ownership
       const order = await tx.order.findUnique({
         where: { id: orderId, userId: userId },
         include: { orderItems: true },
@@ -129,13 +137,11 @@ export async function PATCH(request) {
         throw new Error("Cannot cancel order once it is in progress.");
       }
 
-      // Update Order Status to CANCELLED
       const cancelledOrder = await tx.order.update({
         where: { id: orderId },
         data: { status: "CANCELLED" },
       });
 
-      // 🛡️ RESTORE STOCK (Increment)
       for (const item of order.orderItems) {
         await tx.product.update({
           where: { id: item.productId },
@@ -148,10 +154,9 @@ export async function PATCH(request) {
 
     return NextResponse.json({
       success: true,
-      message: "Order cancelled and items returned to stock! ♻️",
+      message: "Order cancelled and items returned to stock!",
     });
   } catch (error) {
-    console.error("Cancellation Error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

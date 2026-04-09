@@ -1,22 +1,54 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import toast from "react-hot-toast";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useAuth, useUser, useClerk } from "@clerk/nextjs";
 import axios from "axios";
 import { clearCart } from "@/lib/features/cart/cartSlice";
-import { Banknote, MapPin, Loader2, ShoppingBag } from "lucide-react";
+import { Banknote, MapPin, Loader2, ShoppingBag, Phone } from "lucide-react";
 
-const OrderSummary = ({ totalPrice, items }) => {
-  const { user } = useUser();
+const OrderSummary = ({ totalPrice = 0, items = [] }) => {
+  const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
+  const { openSignIn } = useClerk();
   const dispatch = useDispatch();
+
   const [loading, setLoading] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [needsPhone, setNeedsPhone] = useState(false);
 
   const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "₹";
 
+  useEffect(() => {
+    if (isLoaded && user) {
+      const existingPhone = user.publicMetadata?.phone || "";
+      if (!existingPhone) {
+        setNeedsPhone(true);
+      } else {
+        setPhone(existingPhone);
+        setNeedsPhone(false);
+      }
+    }
+  }, [isLoaded, user]);
+
   const handlePlaceOrder = async () => {
-    if (loading || items.length === 0) return;
+    if (!isLoaded) return;
+
+    if (!user) {
+      toast.error("Please sign in to place your order!");
+      openSignIn();
+      return;
+    }
+
+    if (needsPhone && (!phone || phone.length < 10)) {
+      toast.error("Please enter a valid WhatsApp number for the meetup.");
+      return;
+    }
+
+    if (loading || items.length === 0) {
+      toast.error("Your cart is empty!");
+      return;
+    }
 
     setLoading(true);
 
@@ -31,18 +63,14 @@ const OrderSummary = ({ totalPrice, items }) => {
             quantity: item.quantity,
           })),
           totalAmount: totalPrice,
+          phoneNumber: phone,
         };
 
-        // Pointing perfectly to your /api/orders backend
         const { data } = await axios.post("/api/orders", orderData, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        // 🔥 Instantly wipes the UI cart in Redux.
         dispatch(clearCart());
-        
-        // 🔥 THE MAGIC FIX: Hard Redirect instead of router.push
-        // This completely bypasses the Next.js cache and forces everything to reload fresh!
         window.location.href = "/orders";
 
         return data.message || "Order Confirmed! ✨";
@@ -94,6 +122,30 @@ const OrderSummary = ({ totalPrice, items }) => {
         </div>
       </div>
 
+      {needsPhone && (
+        <div className="mb-6 animate-in slide-in-from-top duration-500">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">
+            WhatsApp Number (Required)
+          </label>
+          <div className="relative">
+            <Phone
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              size={16}
+            />
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="e.g. 919876543210"
+              className="w-full bg-slate-50 border border-slate-100 p-4 pl-12 rounded-2xl text-sm font-bold focus:bg-white focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+            />
+          </div>
+          <p className="text-[9px] text-slate-400 mt-2 ml-1 font-medium italic">
+            * This is required so the seller can contact you for the meetup.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-4 py-6 border-t border-slate-50 mb-6">
         <div className="flex justify-between items-center text-sm">
           <span className="uppercase tracking-widest text-[10px] font-black text-slate-400">
@@ -101,7 +153,7 @@ const OrderSummary = ({ totalPrice, items }) => {
           </span>
           <span className="text-slate-800 font-bold">
             {currency}
-            {totalPrice.toLocaleString()}
+            {(totalPrice || 0).toLocaleString()}
           </span>
         </div>
         <div className="flex justify-between items-center text-sm">
@@ -120,7 +172,7 @@ const OrderSummary = ({ totalPrice, items }) => {
         </span>
         <span className="text-3xl font-black text-indigo-600 tracking-tighter">
           {currency}
-          {totalPrice.toLocaleString()}
+          {(totalPrice || 0).toLocaleString()}
         </span>
       </div>
 

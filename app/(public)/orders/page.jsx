@@ -10,23 +10,31 @@ import {
   Loader2,
   AlertTriangle,
   MessageCircle,
+  Star,
+  Send,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
-export default function MyOrdersPage() {
+const MyOrdersPage = () => {
   const { getToken } = useAuth();
   const { isLoaded, user } = useUser();
   const router = useRouter();
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [cancelModal, setCancelModal] = useState({
     isOpen: false,
     orderId: null,
+  });
+  const [reviewModal, setReviewModal] = useState({
+    isOpen: false,
+    productId: null,
+    orderId: null,
+    rating: 0,
+    review: "",
   });
 
   useEffect(() => {
@@ -55,34 +63,57 @@ export default function MyOrdersPage() {
     }
   }, [user, fetchOrders]);
 
-  const openCancelModal = (orderId) => {
-    setCancelModal({ isOpen: true, orderId });
-  };
-
-  const closeCancelModal = () => {
-    setCancelModal({ isOpen: false, orderId: null });
-  };
-
   const confirmCancelOrder = async () => {
     const orderIdToCancel = cancelModal.orderId;
-    closeCancelModal();
+    setCancelModal({ isOpen: false, orderId: null });
 
-    const loadingToast = toast.loading("Cancelling order & restoring stock...");
+    const loadingToast = toast.loading("Cancelling order...");
     try {
       const token = await getToken();
-
       await axios.patch(
         "/api/orders",
         { orderId: orderIdToCancel },
         { headers: { Authorization: `Bearer ${token}` } },
       );
-
-      toast.success("Order Cancelled. Stock restored! ♻️", {
-        id: loadingToast,
-      });
+      toast.success("Order Cancelled! ♻️", { id: loadingToast });
       fetchOrders();
     } catch (error) {
       toast.error(error.response?.data?.error || "Failed to cancel", {
+        id: loadingToast,
+      });
+    }
+  };
+
+  const submitReview = async () => {
+    if (reviewModal.rating === 0)
+      return toast.error("Please select a star rating!");
+    if (!reviewModal.review.trim())
+      return toast.error("Please write a short review!");
+
+    const loadingToast = toast.loading("Submitting your review...");
+    try {
+      const token = await getToken();
+      await axios.post(
+        "/api/rating",
+        {
+          productId: reviewModal.productId,
+          orderId: reviewModal.orderId,
+          rating: reviewModal.rating,
+          review: reviewModal.review,
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      toast.success("Review submitted! ✨", { id: loadingToast });
+      setReviewModal({
+        isOpen: false,
+        productId: null,
+        orderId: null,
+        rating: 0,
+        review: "",
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Failed to submit review", {
         id: loadingToast,
       });
     }
@@ -169,14 +200,45 @@ export default function MyOrdersPage() {
                             <p className="text-[9px] font-bold text-slate-300 mt-1 mb-2">
                               {new Date(order.createdAt).toDateString()}
                             </p>
-                            <a
-                              href={`https://wa.me/${item.product?.store?.phone || ""}?text=Hi, I recently ordered ${item.product?.name} on NIT-Mart. When can we meet up?`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 text-[9px] font-black text-emerald-600 bg-emerald-50 hover:bg-emerald-500 hover:text-white px-3 py-1.5 rounded-lg uppercase tracking-widest transition-colors active:scale-95 border border-emerald-100 w-fit"
-                            >
-                              <MessageCircle size={12} /> Contact Seller
-                            </a>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => {
+                                  const phone =
+                                    item.product?.store?.contact?.replace(
+                                      /\D/g,
+                                      "",
+                                    );
+                                  if (!phone)
+                                    return toast.error(
+                                      "Seller contact not available",
+                                    );
+                                  window.open(
+                                    `https://wa.me/${phone}?text=Hi, regarding my order for ${item.product?.name}...`,
+                                    "_blank",
+                                  );
+                                }}
+                                className="inline-flex items-center gap-1.5 text-[9px] font-black text-emerald-600 bg-emerald-50 hover:bg-emerald-500 hover:text-white px-3 py-1.5 rounded-lg uppercase tracking-widest transition-colors border border-emerald-100"
+                              >
+                                <MessageCircle size={12} /> Contact Seller
+                              </button>
+
+                              {order.status === "DELIVERED" && (
+                                <button
+                                  onClick={() =>
+                                    setReviewModal({
+                                      isOpen: true,
+                                      productId: item.productId,
+                                      orderId: order.id,
+                                      rating: 0,
+                                      review: "",
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1.5 text-[9px] font-black text-amber-600 bg-amber-50 hover:bg-amber-500 hover:text-white px-3 py-1.5 rounded-lg uppercase tracking-widest transition-colors border border-amber-100"
+                                >
+                                  <Star size={12} /> Rate Product
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -204,7 +266,9 @@ export default function MyOrdersPage() {
                     <td className="p-6 text-center">
                       {order.status === "ORDER_PLACED" ? (
                         <button
-                          onClick={() => openCancelModal(order.id)}
+                          onClick={() =>
+                            setCancelModal({ isOpen: true, orderId: order.id })
+                          }
                           className="inline-flex items-center gap-2 text-[10px] font-black text-rose-500 hover:text-white hover:bg-rose-500 border border-rose-200 px-4 py-2 rounded-xl transition-all uppercase tracking-widest active:scale-95 shadow-sm"
                         >
                           <XCircle size={14} /> Cancel
@@ -224,28 +288,27 @@ export default function MyOrdersPage() {
       </div>
 
       {cancelModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl shadow-slate-900/20 text-center transform scale-100 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl text-center">
             <div className="mx-auto w-16 h-16 bg-rose-50 text-rose-500 rounded-[1.5rem] flex items-center justify-center mb-6 shadow-inner">
               <AlertTriangle size={32} />
             </div>
             <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-3">
               Cancel Order?
             </h3>
-            <p className="text-xs font-bold text-slate-500 mb-8 tracking-wide leading-relaxed">
-              This action cannot be undone. The item will be relisted on
-              NIT-Mart so other students can buy it.
+            <p className="text-xs font-bold text-slate-500 mb-8 tracking-wide">
+              The item will be relisted on NIT-Mart for other students.
             </p>
             <div className="flex gap-4">
               <button
-                onClick={closeCancelModal}
-                className="flex-1 py-4 bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors active:scale-95"
+                onClick={() => setCancelModal({ isOpen: false, orderId: null })}
+                className="flex-1 py-4 bg-slate-50 text-slate-500 border border-slate-200 rounded-2xl font-black uppercase text-[10px]"
               >
                 Nevermind
               </button>
               <button
                 onClick={confirmCancelOrder}
-                className="flex-1 py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-rose-200 transition-colors active:scale-95"
+                className="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black uppercase text-[10px]"
               >
                 Yes, Cancel
               </button>
@@ -253,6 +316,69 @@ export default function MyOrdersPage() {
           </div>
         </div>
       )}
+
+      {reviewModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl transform animate-in zoom-in-95 duration-200">
+            <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-2">
+              Share your <span className="text-amber-500">Feedback</span>
+            </h3>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 border-b pb-4">
+              Rate your campus purchase
+            </p>
+
+            <div className="flex justify-center gap-2 mb-8">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  onClick={() =>
+                    setReviewModal({ ...reviewModal, rating: star })
+                  }
+                  className="transition-transform active:scale-125"
+                >
+                  <Star
+                    size={36}
+                    fill={star <= reviewModal.rating ? "#f59e0b" : "none"}
+                    className={
+                      star <= reviewModal.rating
+                        ? "text-amber-500"
+                        : "text-slate-200"
+                    }
+                  />
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              value={reviewModal.review}
+              onChange={(e) =>
+                setReviewModal({ ...reviewModal, review: e.target.value })
+              }
+              placeholder="How was the product? Was the meetup smooth?"
+              className="w-full bg-slate-50 border border-slate-100 p-5 rounded-2xl text-sm font-bold focus:bg-white focus:ring-2 focus:ring-amber-100 outline-none transition-all h-32 mb-6"
+            />
+
+            <div className="flex gap-4">
+              <button
+                onClick={() =>
+                  setReviewModal({ ...reviewModal, isOpen: false })
+                }
+                className="flex-1 py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitReview}
+                className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
+              >
+                Submit Review <Send size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
-}
+};
+
+export default MyOrdersPage;
